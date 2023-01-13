@@ -74,6 +74,7 @@ async def authenticate(update: Update, context:ContextTypes.DEFAULT_TYPE) -> str
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     context.user_data[ACTION] = None
     context.user_data[WEBSITE] = None
+    
     buttons = [
             [InlineKeyboardButton(text="View watch list", callback_data=VIEW)],
             [InlineKeyboardButton(text="Add to watch list", callback_data=ADD)],
@@ -89,8 +90,10 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
             await update.callback_query.answer()
             await send_message(text=text, chat_id=update.effective_user.id ,reply_markup=keyboard)
         except Exception as e:
+            print(e)
             context.user_data[START_OVER] = False
     elif not context.user_data.get(START_OVER):
+
         await update.message.reply_text(text=text, reply_markup=keyboard)
 
     context.user_data[START_OVER] = True
@@ -262,11 +265,11 @@ def create_update_string(user_id):
                 try:
                     available_branches = website2availability_callback[website](serial)
                     if available_branches != []:
-                        update_string += f'{description} available in: {available_branches}\n'
+                        update_string += f'\n{description} available in:\n {available_branches}\n'
                     else:
                         update_string += f'{description} not available\n'
-                except:
-                    pass
+                except Exception as e:
+                    print(e)
         else:
             update_string += " No items in watchlist\n"
 
@@ -318,10 +321,10 @@ def main() -> None:
                                         CallbackQueryHandler(selected_get_update, pattern=f'{GET_UPDATE}'),
                                     ],
             SELECTED_MODE:          [   CallbackQueryHandler(backto_main_menu, pattern=f'^({BACKTO_MAIN_MENU})$'),
-                                        CallbackQueryHandler(chmod)
+                                        CallbackQueryHandler(chmod),
                                     ], 
             SELECTED_ITEM_TO_REMOVE:[  CallbackQueryHandler(backto_main_menu, pattern=f'^({BACKTO_MAIN_MENU})$'),
-                                        CallbackQueryHandler(remove_item)
+                                        CallbackQueryHandler(remove_item),
                                     ],
             SELECTED_WEBSITE:       [   CallbackQueryHandler(backto_main_menu, pattern=f'^({BACKTO_MAIN_MENU})$'),
                                         CallbackQueryHandler(ask_for_serial), 

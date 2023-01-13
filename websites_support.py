@@ -1,7 +1,7 @@
 import urllib
 import json
 import re
-
+import requests
 
 ################ IVORY ###########################
 def check_ivory_availability(ivory_serial_number):
@@ -19,7 +19,7 @@ def check_ivory_availability(ivory_serial_number):
     for branch_availability in ivory_res_as_dict['Data']:
         if 'isAvailable' in branch_availability.keys():
             if branch_availability['isAvailable']:
-                ivory_available_branches.append(branch_availability['branchName'])
+                ivory_available_branches.append(branch_availability['friendlyURL'].replace("ivory_store_", ""))
 
     return ivory_available_branches
 
@@ -41,10 +41,13 @@ def ivory_serial_2_title(ivory_serial_number, key='title'):
 
 def check_ksp_availability(ksp_serial_number):
     ksp_url = f"https://ksp.co.il/m_action/api/mlay/{ksp_serial_number}"
-    ksp_req = urllib.request.Request(ksp_url, data=None, headers={'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'}, origin_req_host=None, unverifiable=False, method=None)
-
-    ksp_res = urllib.request.urlopen(ksp_req)
-    ksp_res_as_text = ksp_res.read().decode("utf-8")
+    
+    headers = dict()
+    headers["lang"] = "en"
+    headers["user-agent"] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
+    
+    ksp_res = requests.get(ksp_url, headers=headers)
+    ksp_res_as_text = ksp_res.content.decode()
     ksp_res_as_dict = json.loads(ksp_res_as_text)
 
 
@@ -57,10 +60,14 @@ def check_ksp_availability(ksp_serial_number):
 
 def ksp_serial_2_title(ksp_serial_number):
     url = f'https://ksp.co.il/m_action/api/search/?q={ksp_serial_number}'
+     
     ksp_search_request = urllib.request.Request(url, data=None, headers={'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'}, origin_req_host=None, unverifiable=False, method=None)
-
-    ksp_search_res = urllib.request.urlopen(ksp_search_request)
-    ksp_search_result_as_text = ksp_search_res.read().decode("utf-8")
+    headers = dict()
+    headers["lang"] = "en"
+    headers["user-agent"] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
+   
+    ksp_search_res = requests.get(url, headers=headers)
+    ksp_search_result_as_text = ksp_search_res.content.decode()
     ksp_search_result_as_dict = json.loads(ksp_search_result_as_text)['result']
     try:
         for item in ksp_search_result_as_dict['items']:
