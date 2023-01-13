@@ -87,10 +87,10 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     text = "Choose Action:"
     if context.user_data.get(START_OVER):
         try:
-            await update.callback_query.answer()
+            #await update.callback_query.answer()
             await send_message(text=text, chat_id=update.effective_user.id ,reply_markup=keyboard)
         except Exception as e:
-            print(e)
+            print("In main menu",e)
             context.user_data[START_OVER] = False
     elif not context.user_data.get(START_OVER):
 
@@ -251,14 +251,19 @@ async def chmod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
 async def selected_get_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     await update.callback_query.edit_message_reply_markup(None)
 
-    update_string = create_update_string(update.effective_user.id)
-    await update.callback_query.edit_message_text(text=update_string)
+    update_strings = get_update(update.effective_user.id)
+    print("selected_get_update:", update_strings)
+    for i,update_string in enumerate(update_strings):
+        if i==0:
+            await update.callback_query.edit_message_text(text=update_string)
+        else:
+            await send_message(text=update_string, chat_id=update.effective_user.id)
     return await main_menu(update, context)
 
-def create_update_string(user_id):
-    update_string = ""
+def get_update(user_id):
+    update_strings = []
     for website in website2availability_callback.keys():
-        update_string += f'\n{website}:'
+        update_string = f'\n{website}:'
         items = db.get_watchlist(website, user_id)
         if items:
             for (serial, description) in items:
@@ -267,18 +272,20 @@ def create_update_string(user_id):
                     if available_branches != []:
                         update_string += f'\n{description} available in:\n {available_branches}\n'
                     else:
-                        update_string += f'{description} not available\n'
+                        update_string += f'\n{description} not available\n'
                 except Exception as e:
-                    print(e)
+                    print("In Get update:",e)
         else:
             update_string += " No items in watchlist\n"
+        update_strings.append(update_string)
 
-
-    return update_string
+    
+    return update_strings
 
 async def obsessive_updates(user_id):
-    update_string = create_update_string(user_id)
-    await send_message(text=update_string, chat_id=user_id)
+    update_strings = get_update(user_id)
+    for update_string in update_strings:
+        await send_message(text=update_string, chat_id=user_id)
 
 def thread_entry():
     async def thread_main():
