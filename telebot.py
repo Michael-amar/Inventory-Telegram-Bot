@@ -90,7 +90,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
             #await update.callback_query.answer()
             await send_message(text=text, chat_id=update.effective_user.id ,reply_markup=keyboard)
         except Exception as e:
-            print("In main menu",e)
             context.user_data[START_OVER] = False
     elif not context.user_data.get(START_OVER):
 
@@ -106,6 +105,7 @@ async def backto_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await update.callback_query.edit_message_reply_markup(None)
     await context.bot.deleteMessage(message_id = update.callback_query.message.id, chat_id = update.effective_user.id)
     return await main_menu(update, context)
+
 ################## ADD ITEM ############################
 
 async def selected_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
@@ -252,7 +252,6 @@ async def selected_get_update(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.callback_query.edit_message_reply_markup(None)
 
     update_strings = get_update(update.effective_user.id)
-    print("selected_get_update:", update_strings)
     for i,update_string in enumerate(update_strings):
         if i==0:
             await update.callback_query.edit_message_text(text=update_string)
