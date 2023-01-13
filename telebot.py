@@ -35,6 +35,7 @@ GET_UPDATE = "GET_UPDATE"
 SELECTED_MODE = "SELECTED_MODE"
 SELECTED_ITEM_TO_REMOVE = "SELECTED_ITEM_TO_REMOVE"
 READ_PASSWORD = "READ_PASSWORD"
+BACKTO_MAIN_MENU = "BACKTO_MAIN_MENU"
 
 db = DB()
 
@@ -86,15 +87,22 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     if context.user_data.get(START_OVER):
         try:
             await update.callback_query.answer()
-            await send_message(text=text, chat_id=update.effective_user.id, reply_markup=keyboard)
-        except:
+            await send_message(text=text, chat_id=update.effective_user.id ,reply_markup=keyboard)
+        except Exception as e:
             context.user_data[START_OVER] = False
     elif not context.user_data.get(START_OVER):
-        await send_message(text=text, chat_id=update.effective_user.id, reply_markup=keyboard)
+        await update.message.reply_text(text=text, reply_markup=keyboard)
 
     context.user_data[START_OVER] = True
     return SELECTED_MAIN_MENU
 
+
+async def backto_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    context.user_data[START_OVER] = True
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_reply_markup(None)
+    await context.bot.deleteMessage(message_id = update.callback_query.message.id, chat_id = update.effective_user.id)
+    return await main_menu(update, context)
 ################## ADD ITEM ############################
 
 async def selected_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
@@ -103,11 +111,11 @@ async def selected_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> st
     await update.callback_query.answer()
     # hide the inline keyboard
     await update.callback_query.edit_message_reply_markup(None)
-    await send_message(text=f"You choose: {action}", chat_id=update.effective_user.id)
 
     buttons = [ [InlineKeyboardButton(text=site_name,callback_data=f'{site_name}')]   for site_name in website2availability_callback.keys() ]
+    buttons.append([InlineKeyboardButton(text="\u00ab Main menu", callback_data=BACKTO_MAIN_MENU)])
     keyboard = InlineKeyboardMarkup(buttons)
-    await send_message( "Choose website:", chat_id=update.effective_user.id, reply_markup=keyboard)
+    await update.callback_query.edit_message_reply_markup(keyboard)
 
     return SELECTED_WEBSITE
 
@@ -117,11 +125,10 @@ async def ask_for_serial(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     action = context.user_data[ACTION]
 
     await update.callback_query.edit_message_reply_markup(None)
-    await send_message(text=f"You choose: {website}", chat_id=update.effective_user.id)
     await update.callback_query.answer()
 
     text = f"Insert serial for: {website}"
-    await send_message(text=text, chat_id=update.effective_user.id)
+    await update.callback_query.edit_message_text(text=text)
     return READ_SERIAL
 
 async def read_serial(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
@@ -138,7 +145,7 @@ async def add_item(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         db.add_to_watchlist(website, serial, item_description, update.effective_user.id)
         await send_message(text=f'Added {item_description} to {website}', chat_id=update.effective_user.id)
     else:
-        await send_message(text=f'item not found', chat_id=update.effective_user.id)
+        await send_message(text=f'{serial} not found in {website}', chat_id=update.effective_user.id)
     return await main_menu(update, context)
 
 
@@ -150,7 +157,6 @@ async def selected_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await update.callback_query.answer()
     # hide the inline keyboard
     await update.callback_query.edit_message_reply_markup(None)
-    await send_message(text=f"You choose: {action}", chat_id=update.effective_user.id)
 
     return await select_item_to_remove(update, context)
 
@@ -164,18 +170,23 @@ async def select_item_to_remove(update: Update, context: ContextTypes.DEFAULT_TY
             buttons.extend([InlineKeyboardButton(text=f"{website}: {description}",callback_data=json.dumps({"serial":serial, "website":website}))] for (serial,description) in items)
     
     if buttons:
+        buttons.append([InlineKeyboardButton(text="\u00ab Main menu", callback_data=BACKTO_MAIN_MENU)])
         keyboard = InlineKeyboardMarkup(buttons)
-        await send_message( "Choose item to remove:", chat_id=update.effective_user.id, reply_markup=keyboard)
+        await update.callback_query.edit_message_text( "Choose item to remove:", reply_markup=keyboard)
         return SELECTED_ITEM_TO_REMOVE
     else:
-        await send_message(f"No items in watch list", chat_id=update.effective_user.id)
+        await update.callback_query.edit_message_text(f"No items in watch list")
         return await main_menu(update, context)
 
 async def remove_item(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     dict = json.loads(update.callback_query.data)
     website = dict['website']
     serial = dict['serial']
-    context.user_data[START_OVER] = False
+
+    # hide the inline keyboard
+    await update.callback_query.edit_message_reply_markup(None)
+    
+    context.user_data[START_OVER] = True
 
     db.remove_from_watchlist(website, serial, update.effective_user.id)
     await send_message(text=f'{serial} removed from {website} watchlist', chat_id=update.effective_user.id)
@@ -188,7 +199,6 @@ async def selected_view(update: Update, context: ContextTypes.DEFAULT_TYPE) -> s
     await update.callback_query.answer()
     # hide the inline keyboard
     await update.callback_query.edit_message_reply_markup(None)
-    await send_message(text=f"You choose: {action}", chat_id=update.effective_user.id)
     return await view_watchlist(update, context)
 
 
@@ -196,13 +206,16 @@ async def view_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return_string = ""
     for website in website2availability_callback.keys():
         items = db.get_watchlist(website, update.effective_user.id)
-        return_string += f"\nWatchlist for {website}:\n"
-        for (serial,description) in items:
-            if description != None:
-                return_string += f"{serial} : {description}\n"
+        return_string += f"\nWatchlist for {website}:"
+        if items:
+            for (serial,description) in items:
+                if description != None:
+                    return_string += f"\n{serial} : {description}\n"
+        else:
+            return_string += " Empty\n"
 
-    await send_message(text=return_string, chat_id=update.effective_user.id)
-
+    await update.callback_query.edit_message_text(text=return_string)
+    context.user_data[START_OVER] = True
     return await main_menu(update, context)
 
 ################# CHMOD #############################
@@ -212,21 +225,21 @@ async def selected_chmod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.callback_query.answer()
     # hide the inline keyboard
     await update.callback_query.edit_message_reply_markup(None)
-    await send_message(text=f"You choose: {action}", chat_id=update.effective_user.id)
 
     buttons = [ 
         [InlineKeyboardButton(text="Obsessive (periodic updates)",callback_data=OBSESSIVE)], 
         [InlineKeyboardButton(text="On demand",callback_data=ON_DEMAND)]
     ]
+    buttons.append([InlineKeyboardButton(text="\u00ab Main menu", callback_data=BACKTO_MAIN_MENU)])
     keyboard = InlineKeyboardMarkup(buttons)
-    await send_message( "Choose Mode:", chat_id=update.effective_user.id, reply_markup=keyboard)
+    await update.callback_query.edit_message_text( "Choose Mode:", reply_markup=keyboard)
     return SELECTED_MODE
 
 
 async def chmod(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     await update.callback_query.edit_message_reply_markup(None)
     new_mode = update.callback_query.data
-    await send_message(text=f"Changed mode to {new_mode}", chat_id=update.effective_user.id)
+    await update.callback_query.edit_message_text(text=f"Changed mode to {new_mode}")
     db.set_mode(new_mode, update.effective_user.id)
     return await main_menu(update, context)
 
@@ -236,20 +249,26 @@ async def selected_get_update(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.callback_query.edit_message_reply_markup(None)
 
     update_string = create_update_string(update.effective_user.id)
-    await send_message(text=update_string, chat_id=update.effective_user.id)
+    await update.callback_query.edit_message_text(text=update_string)
     return await main_menu(update, context)
 
 def create_update_string(user_id):
     update_string = ""
     for website in website2availability_callback.keys():
-        update_string += f'\n{website}:\n'
+        update_string += f'\n{website}:'
         items = db.get_watchlist(website, user_id)
-        for (serial, description) in items:
-            available_branches = website2availability_callback[website](serial)
-            if available_branches != []:
-                update_string += f'{description} available in: {available_branches}\n'
-            else:
-                update_string += f'{description} not available\n'
+        if items:
+            for (serial, description) in items:
+                try:
+                    available_branches = website2availability_callback[website](serial)
+                    if available_branches != []:
+                        update_string += f'{description} available in: {available_branches}\n'
+                    else:
+                        update_string += f'{description} not available\n'
+                except:
+                    pass
+        else:
+            update_string += " No items in watchlist\n"
 
 
     return update_string
@@ -290,17 +309,25 @@ def main() -> None:
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            READ_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, authenticate)], 
-            SELECTED_MAIN_MENU:[ CallbackQueryHandler(selected_add, pattern=f'^({ADD})$'),
-                                CallbackQueryHandler(selected_remove, pattern=f'^({REMOVE})$'),
-                                CallbackQueryHandler(selected_view, pattern=f'^({VIEW})$'),
-                                CallbackQueryHandler(selected_chmod, pattern=f'{CHMOD}'),
-                                CallbackQueryHandler(selected_get_update, pattern=f'{GET_UPDATE}')
-                            ],
-            SELECTED_MODE: [CallbackQueryHandler(chmod)], 
-            SELECTED_ITEM_TO_REMOVE: [CallbackQueryHandler(remove_item)],
-            SELECTED_WEBSITE: [ CallbackQueryHandler(ask_for_serial)],
-            READ_SERIAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, read_serial)],
+            READ_PASSWORD:          [   MessageHandler(filters.TEXT & ~filters.COMMAND, authenticate),
+                                    ], 
+            SELECTED_MAIN_MENU:     [   CallbackQueryHandler(selected_add, pattern=f'^({ADD})$'),
+                                        CallbackQueryHandler(selected_remove, pattern=f'^({REMOVE})$'),
+                                        CallbackQueryHandler(selected_view, pattern=f'^({VIEW})$'),
+                                        CallbackQueryHandler(selected_chmod, pattern=f'{CHMOD}'),
+                                        CallbackQueryHandler(selected_get_update, pattern=f'{GET_UPDATE}'),
+                                    ],
+            SELECTED_MODE:          [   CallbackQueryHandler(backto_main_menu, pattern=f'^({BACKTO_MAIN_MENU})$'),
+                                        CallbackQueryHandler(chmod)
+                                    ], 
+            SELECTED_ITEM_TO_REMOVE:[  CallbackQueryHandler(backto_main_menu, pattern=f'^({BACKTO_MAIN_MENU})$'),
+                                        CallbackQueryHandler(remove_item)
+                                    ],
+            SELECTED_WEBSITE:       [   CallbackQueryHandler(backto_main_menu, pattern=f'^({BACKTO_MAIN_MENU})$'),
+                                        CallbackQueryHandler(ask_for_serial), 
+                                    ],
+            READ_SERIAL:            [   MessageHandler(filters.TEXT & ~filters.COMMAND, read_serial)
+                                    ],
         },
         fallbacks=[CommandHandler("start", start)],
 
