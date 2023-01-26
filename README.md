@@ -25,7 +25,7 @@ Supported website are: ksp.co.il, ivory.co.il, bug.co.il
 
 5) install required library
    ```console
-   pip install python-telegram-bot --upgrade
+   pip install python-telegram-bot requests
    ```
 
 6) Run the Bot
