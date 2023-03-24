@@ -5,6 +5,14 @@ A telegram bot that checks if products in its watch list are available in store.
 
 Supported website are: ksp.co.il, ivory.co.il, bug.co.il
 
+
+
+https://user-images.githubusercontent.com/48647304/227629871-84683e05-1150-49dd-8b93-e9ec0b959b68.mov
+
+
+
+
+
 ## Running the bot
 1) Create a telegram bot [(tutorial)](https://sendpulse.com/knowledge-base/chatbot/telegram/create-telegram-chatbot), and write down the bot TOKEN
 2) clone this repository
